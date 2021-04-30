@@ -12,7 +12,7 @@ class RBankByBridge extends BridgeAbstract {
 		$html = getSimpleHTMLDOM($mainPageUrl)
 			or returnServerError('Could not request rbank.by.');
 
-		foreach($html->find('div.media-old') as $element){
+		foreach($html->find('div.media-body-old') as $element){
 			$item = array();
 			$item['title'] = $element->find('div.title', 0)->first_child()->innertext;
 			$item['timestamp'] = DateTime::createFromFormat(
