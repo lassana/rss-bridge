@@ -50,10 +50,10 @@ class AlfaBankByBridge extends BridgeAbstract {
 					)->getTimestamp();
 
 				$itemUrl = self::URI . $element->href;
-                                if($business){
-                                        $itemUrl = str_replace('?business=true', '', $itemUrl);
-                                }
-                                $item['uri'] = $itemUrl;
+				if($business){
+					$itemUrl = str_replace('?business=true', '', $itemUrl);
+				}
+				$item['uri'] = $itemUrl;
 
 				if($fullContent){
 					$itemHtml = getSimpleHTMLDOM($itemUrl);
