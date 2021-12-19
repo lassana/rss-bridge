@@ -28,7 +28,7 @@ final class Configuration {
 	 *
 	 * @todo Replace this property by a constant.
 	 */
-	public static $VERSION = 'dev.2020-11-10';
+	public static $VERSION = 'dev.2021-04-25';
 
 	/**
 	 * Holds the configuration data.
@@ -56,7 +56,7 @@ final class Configuration {
 	 * not satisfy the requirements of RSS-Bridge.
 	 *
 	 * **Requirements**
-	 * - PHP 5.6.0 or higher
+	 * - PHP 7.1.0 or higher
 	 * - `openssl` extension
 	 * - `libxml` extension
 	 * - `mbstring` extension
@@ -79,8 +79,8 @@ final class Configuration {
 	public static function verifyInstallation() {
 
 		// Check PHP version
-		if(version_compare(PHP_VERSION, '5.6.0') === -1)
-			self::reportError('RSS-Bridge requires at least PHP version 5.6.0!');
+		if(version_compare(PHP_VERSION, '7.1.0') === -1)
+			self::reportError('RSS-Bridge requires at least PHP version 7.1.0!');
 
 		// extensions check
 		if(!extension_loaded('openssl'))
@@ -150,6 +150,19 @@ final class Configuration {
 			}
 		}
 
+		foreach (getenv() as $envkey => $value) {
+			// Replace all settings with their respective environment variable if available
+			$keyArray = explode('_', $envkey);
+			if($keyArray[0] === 'RSSBRIDGE') {
+				$header = strtolower($keyArray[1]);
+				$key = strtolower($keyArray[2]);
+				if($value === 'true' || $value === 'false') {
+					$value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+				}
+				Configuration::$config[$header][$key] = $value;
+			}
+		}
+
 		if(!is_string(self::getConfig('system', 'timezone'))
 		|| !in_array(self::getConfig('system', 'timezone'), timezone_identifiers_list(DateTimeZone::ALL_WITH_BC)))
 			self::reportConfigurationError('system', 'timezone');
@@ -197,6 +210,9 @@ final class Configuration {
 		if(!empty(self::getConfig('admin', 'email'))
 		&& !filter_var(self::getConfig('admin', 'email'), FILTER_VALIDATE_EMAIL))
 			self::reportConfigurationError('admin', 'email', 'Is not a valid email address');
+
+		if(!is_bool(self::getConfig('admin', 'donations')))
+		self::reportConfigurationError('admin', 'donations', 'Is not a valid Boolean');
 
 		if(!is_string(self::getConfig('error', 'output')))
 			self::reportConfigurationError('error', 'output', 'Is not a valid String');
