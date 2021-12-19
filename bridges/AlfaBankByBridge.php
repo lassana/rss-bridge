@@ -5,13 +5,14 @@ class AlfaBankByBridge extends BridgeAbstract {
 	const NAME = 'AlfaBank.by Новости';
 	const URI = 'https://www.alfabank.by';
 	const DESCRIPTION = 'Уведомления Alfa-Now — новости от Альфа-Банка';
-	const CACHE_TIMEOUT = 0;
+	const CACHE_TIMEOUT = 3600; // 1 hour
 	const PARAMETERS = array(
 		'News' => array(
 			'business' => array(
 				'name' => 'Альфа Бизнес',
 				'type' => 'list',
-				'title' => 'В зависимости от выбора, возращает уведомления для клиентов физ. лиц либо для клиентов-юридических лиц и ИП',
+				'title' => 'В зависимости от выбора, возращает уведомления для" .
+					" клиентов физ. лиц либо для клиентов-юридических лиц и ИП',
 				'values' => array(
 					'Новости' => 'news',
 					'Новости бизнеса' => 'newsBusiness'
@@ -34,9 +35,7 @@ class AlfaBankByBridge extends BridgeAbstract {
 		if($business) {
 			$mainPageUrl .= '?business=true';
 		}
-		$html = getSimpleHTMLDOM($mainPageUrl)
-			or returnServerError('Could not request AlfaBank.');
-
+		$html = getSimpleHTMLDOM($mainPageUrl);
 		$limit = 0;
 
 		foreach($html->find('a.notifications__item') as $element) {
@@ -57,7 +56,7 @@ class AlfaBankByBridge extends BridgeAbstract {
 
 				if($fullContent) {
 					$itemHtml = getSimpleHTMLDOM($itemUrl);
-					if($itemHtml){
+					if($itemHtml) {
 						$item['content'] = $itemHtml->find('div.now-p__content-text', 0)->innertext;
 					}
 				}
@@ -72,9 +71,13 @@ class AlfaBankByBridge extends BridgeAbstract {
 		return static::URI . '/local/images/favicon.ico';
 	}
 
-	function ruMonthsToEn($date) {
-		$ruMonths = array( 'Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря' );
-		$enMonths = array( 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' );
+	private function ruMonthsToEn($date) {
+		$ruMonths = array(
+			'Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня',
+			'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря' );
+		$enMonths = array(
+			'January', 'February', 'March', 'April', 'May', 'June',
+			'July', 'August', 'September', 'October', 'November', 'December' );
 		return str_replace($ruMonths, $enMonths, $date);
 	}
 }
