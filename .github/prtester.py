@@ -1,8 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-import random
-import json
+from datetime import datetime
 import os.path
+
+from soupsieve import select
 
 # This script is specifically written to be used in automation for https://github.com/RSS-Bridge/rss-bridge
 #
@@ -46,28 +47,49 @@ def testBridges(bridges,status):
                         if parameter.has_attr('checked'):
                             formstring = formstring + '&' + parameter.get('name') + '=on'
                 for list in lists:
-                    formstring = formstring + '&' + list.get('name') + '=' + list.contents[0].get('value')
+                    selectionvalue = ''
+                    for selectionentry in list.contents:
+                        if 'selected' in selectionentry.attrs:
+                            selectionvalue = selectionentry.get('value')
+                            break
+                    if selectionvalue == '':
+                        selectionvalue = list.contents[0].get('value')
+                    formstring = formstring + '&' + list.get('name') + '=' + selectionvalue
                 if not errormessages:
                     # if all example/default values are present, form the full request string, run the request, replace the static css
-                    # file with the url of em's public instance and then write it all to file.
+                    # file with the url of em's public instance and then upload it to termpad.com, a pastebin-like-site.
                     r = requests.get(URL + bridgestring + formstring)
                     pagetext = r.text.replace('static/HtmlFormat.css','https://feed.eugenemolotov.ru/static/HtmlFormat.css')
-                    with open(os.getcwd() + "/results/" + bridgeid + '-' + status + '-context' + str(formid) + '.html', 'w+') as file:
-                        file.write(pagetext)
+                    pagetext = pagetext.encode("utf_8")
+                    termpad = requests.post(url="https://termpad.com/", data=pagetext)
+                    termpadurl = termpad.text
+                    termpadurl = termpadurl.replace('termpad.com/','termpad.com/raw/')
+                    termpadurl = termpadurl.replace('\n','')
+                    with open(os.getcwd() + '/comment.txt', 'a+') as file:
+                        file.write("\n")
+                        file.write("| [`" + bridgeid + '-' + status + '-context' + str(formid) + "`](" + termpadurl + ") | " + date_time + " |")
                 else:
                     # if there are errors (which means that a required value has no example or default value), log out which error appeared
-                    with open(os.getcwd() + "/results/" + bridgeid + '-' + status + '-context' + str(formid) + '.html', 'w+') as file:
-                        file.write(str(errormessages))
+                    termpad = requests.post(url="https://termpad.com/", data=str(errormessages))
+                    termpadurl = termpad.text
+                    termpadurl = termpadurl.replace('termpad.com/','termpad.com/raw/')
+                    termpadurl = termpadurl.replace('\n','')
+                    with open(os.getcwd() + '/comment.txt', 'a+') as file:
+                        file.write("\n")
+                        file.write("| [`" + bridgeid + '-' + status + '-context' + str(formid) + "`](" + termpadurl + ") | " + date_time + " |")
                 formid += 1
 
 gitstatus = ["current", "pr"]
+now = datetime.now()
+date_time = now.strftime("%Y-%m-%d, %H:%M:%S")
+
+with open(os.getcwd() + '/comment.txt', 'w+') as file:
+    file.write(''' ## Pull request artifacts
+| file | last change |
+| ---- | ------ |''')
 
 for status in gitstatus: # run this twice, once for the current version, once for the PR version
-    if status == "current":
-        port = "3000" # both ports are defined in the corresponding workflow .yml file
-    elif status == "pr":
-        port = "3001"
-    URL = "http://localhost:" + port
+    URL = "http://192.168.178.102:3001"
     page = requests.get(URL) # Use python requests to grab the rss-bridge main page
     soup = BeautifulSoup(page.content, "html.parser") # use bs4 to turn the page into soup
     bridges = soup.find_all("section") # get a soup-formatted list of all bridges on the rss-bridge page
