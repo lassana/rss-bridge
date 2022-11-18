@@ -14,19 +14,34 @@
 
 function render(string $template, array $context = []): string
 {
+    if ($template === 'base.html.php') {
+        throw new \Exception('Do not render base.html.php into itself');
+    }
+    $context['system_message'] = Configuration::getConfig('system', 'message');
     $context['page'] = render_template($template, $context);
     return render_template('base.html.php', $context);
 }
 
+/**
+ * Render template as absolute path or relative to templates folder.
+ * Do not pass user input in $template
+ */
 function render_template(string $template, array $context = []): string
 {
     if (isset($context['template'])) {
         throw new \Exception("Don't use `template` as a context key");
     }
+    $templateFilepath = __DIR__ . '/../templates/' . $template;
     extract($context);
     ob_start();
     try {
-        require __DIR__ . '/../templates/' . $template;
+        if (is_file($template)) {
+            require $template;
+        } elseif (is_file($templateFilepath)) {
+            require $templateFilepath;
+        } else {
+            throw new \Exception(sprintf('Unable to find template `%s`', $template));
+        }
     } catch (\Throwable $e) {
         ob_end_clean();
         throw $e;
@@ -48,6 +63,15 @@ function e(string $s): string
 function raw(string $s): string
 {
     return $s;
+}
+
+function truncate(string $s, int $length = 150, $marker = '...'): string
+{
+    $s = trim($s);
+    if (mb_strlen($s) <= $length) {
+        return $s;
+    }
+    return mb_substr($s, 0, $length) . $marker;
 }
 
 /**
@@ -87,6 +111,15 @@ function sanitize(
     }
 
     return $htmlContent;
+}
+
+function sanitize_html(string $html): string
+{
+    $html = str_replace('<script', '<&zwnj;script', $html); // Disable scripts, but leave them visible.
+    $html = str_replace('<iframe', '<&zwnj;iframe', $html);
+    $html = str_replace('<link', '<&zwnj;link', $html);
+    // We leave alone object and embed so that videos can play in RSS readers.
+    return $html;
 }
 
 /**
@@ -136,31 +169,35 @@ function backgroundToImg($htmlContent)
  *
  * @link https://github.com/plaidfluff/php-urljoin php-urljoin
  *
- * @param string|object $content The HTML content. Supports HTML objects or string objects
- * @param string $server Fully qualified URL to the page containing relative links
- * @return object Content with fixed URLs.
+ * @param string|object $dom The HTML content. Supports HTML objects or string objects
+ * @param string $url Fully qualified URL to the page containing relative links
+ * @return string|object Content with fixed URLs.
  */
-function defaultLinkTo($content, $server)
+function defaultLinkTo($dom, $url)
 {
+    if ($dom === '') {
+        return $url;
+    }
+
     $string_convert = false;
-    if (is_string($content)) {
+    if (is_string($dom)) {
         $string_convert = true;
-        $content = str_get_html($content);
+        $dom = str_get_html($dom);
     }
 
-    foreach ($content->find('img') as $image) {
-        $image->src = urljoin($server, $image->src);
+    foreach ($dom->find('img') as $image) {
+        $image->src = urljoin($url, $image->src);
     }
 
-    foreach ($content->find('a') as $anchor) {
-        $anchor->href = urljoin($server, $anchor->href);
+    foreach ($dom->find('a') as $anchor) {
+        $anchor->href = urljoin($url, $anchor->href);
     }
 
     if ($string_convert) {
-        $content = $content->outertext;
+        $dom = $dom->outertext;
     }
 
-    return $content;
+    return $dom;
 }
 
 /**
