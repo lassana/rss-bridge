@@ -15,7 +15,12 @@ class OnlinerByBridge extends BridgeAbstract {
 		$limit = 0;
 
 		foreach($html->find('li.news-list__item') as $element) {
-			if($limit < 30) {
+			if($limit < 100) {
+				if (trim($element->find('span.news-list__item-title', 0)->innertext) == 'Назад') {
+					// The bottom of the page has been reached
+					continue;
+				}
+
 				$item = array();
 				$item['uid'] = 'urn:sha1:' 
 					. hash('sha1', $element->find('a.news-list__item-link', 0)->href);
@@ -36,7 +41,18 @@ class OnlinerByBridge extends BridgeAbstract {
 				} else {
 					$item['content'] = trim($element->find('span.news-list__item-text', 0)->innertext);
 				}
-				// timestamp is not present on the page as of 30-Jan-2022
+
+				// Timestamps aren't presented on the page, so let's try to guess them from the URLs
+				preg_match(
+					'/onliner\.by\/([0-9]+)\/([0-9]+)\/([0-9]+)\//',
+					$item['uri'],
+					$dateRegex);
+				if (count($dateRegex) == 4) {
+					$item['timestamp'] = DateTime::createFromFormat(
+							'Y m d H i s',
+							$dateRegex[1] . ' ' . $dateRegex[2] . ' ' . $dateRegex[3] . ' 00 00 00')
+						->getTimestamp();
+				}
 
 				$this->items[] = $item;
 				$limit++;
