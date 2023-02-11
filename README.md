@@ -8,7 +8,7 @@ RSS-Bridge is a PHP project capable of generating RSS and Atom feeds for website
 [![GitHub release](https://img.shields.io/github/release/rss-bridge/rss-bridge.svg?logo=github)](https://github.com/rss-bridge/rss-bridge/releases/latest)
 [![irc.libera.chat](https://img.shields.io/badge/irc.libera.chat-%23rssbridge-blue.svg)](https://web.libera.chat/#rssbridge)
 [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#rssbridge:libera.chat)
-[![Actions Status](https://img.shields.io/github/workflow/status/RSS-Bridge/rss-bridge/Tests/master?label=GitHub%20Actions&logo=github)](https://github.com/RSS-Bridge/rss-bridge/actions)
+[![Actions Status](https://img.shields.io/github/actions/workflow/status/RSS-Bridge/rss-bridge/tests.yml?branch=master&label=GitHub%20Actions&logo=github)](https://github.com/RSS-Bridge/rss-bridge/actions)
 
 |||
 |:-:|:-:|
@@ -38,7 +38,7 @@ Check out RSS-Bridge right now on https://rss-bridge.org/bridge01 or find anothe
 
 ## Tutorial
 
-RSS-Bridge requires php 7.4.
+RSS-Bridge requires php 7.4 (or higher).
 
 ### Install with git:
 
@@ -99,6 +99,29 @@ docker create --name rss-bridge --publish 3000:80 rss-bridge
 
 # Start the container
 docker start rss-bridge
+```
+
+Browse http://localhost:3000/
+
+#### Install with docker-compose
+
+Create a `docker-compose.yml` file locally with with the following content:
+```yml
+version: '2'
+services:
+  rss-bridge:
+    image: rssbridge/rss-bridge:latest
+    volumes:
+      - </local/custom/path>:/config
+    ports:
+      - 3000:80
+    restart: unless-stopped
+```
+
+Then launch with `docker-compose`:
+
+```bash
+docker-compose up
 ```
 
 Browse http://localhost:3000/
