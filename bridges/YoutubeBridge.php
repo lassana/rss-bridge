@@ -99,8 +99,11 @@ class YoutubeBridge extends BridgeAbstract
         }
 
         $jsonData = $this->getJSONData($html);
-        $jsonData = $jsonData->contents->twoColumnWatchNextResults->results->results->contents;
+        if (! isset($jsonData->contents)) {
+            return;
+        }
 
+        $jsonData = $jsonData->contents->twoColumnWatchNextResults->results->results->contents;
         $videoSecondaryInfo = null;
         foreach ($jsonData as $item) {
             if (isset($item->videoSecondaryInfoRenderer)) {
@@ -333,6 +336,7 @@ class YoutubeBridge extends BridgeAbstract
                 $html = $this->ytGetSimpleHTMLDOM($url_listing);
                 $jsonData = $this->getJSONData($html);
                 $url_feed = $jsonData->metadata->channelMetadataRenderer->rssUrl;
+                $this->iconURL = $jsonData->metadata->channelMetadataRenderer->avatar->thumbnails[0]->url;
             }
             if (!$this->skipFeeds()) {
                 $html = $this->ytGetSimpleHTMLDOM($url_feed);
@@ -439,6 +443,15 @@ class YoutubeBridge extends BridgeAbstract
                 return htmlspecialchars_decode($this->feedName) . ' - YouTube'; // We already know it's a bridge, right?
             default:
                 return parent::getName();
+        }
+    }
+
+    public function getIcon()
+    {
+        if (empty($this->iconURL)) {
+            return parent::getIcon();
+        } else {
+            return $this->iconURL;
         }
     }
 }

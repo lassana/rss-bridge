@@ -34,10 +34,15 @@ final class RssBridge
             if ((error_reporting() & $code) === 0) {
                 return false;
             }
-            $text = sprintf('%s at %s line %s', $message, trim_path_prefix($file), $line);
-            // Drop the current frame
+            $text = sprintf(
+                '%s at %s line %s',
+                sanitize_root($message),
+                sanitize_root($file),
+                $line
+            );
             Logger::warning($text);
             if (Debug::isEnabled()) {
+                // todo: extract to log handler
                 print sprintf("<pre>%s</pre>\n", e($text));
             }
         });
@@ -49,12 +54,13 @@ final class RssBridge
                 $message = sprintf(
                     'Fatal Error %s: %s in %s line %s',
                     $error['type'],
-                    $error['message'],
-                    trim_path_prefix($error['file']),
+                    sanitize_root($error['message']),
+                    sanitize_root($error['file']),
                     $error['line']
                 );
                 Logger::error($message);
                 if (Debug::isEnabled()) {
+                    // todo: extract to log handler
                     print sprintf("<pre>%s</pre>\n", e($message));
                 }
             }
@@ -63,8 +69,8 @@ final class RssBridge
         // Consider: ini_set('error_reporting', E_ALL & ~E_DEPRECATED);
         date_default_timezone_set(Configuration::getConfig('system', 'timezone'));
 
-        $authenticationMiddleware = new AuthenticationMiddleware();
         if (Configuration::getConfig('authentication', 'enable')) {
+            $authenticationMiddleware = new AuthenticationMiddleware();
             $authenticationMiddleware();
         }
 
