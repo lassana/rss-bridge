@@ -16,22 +16,19 @@ class DisplayAction implements ActionInterface
 {
     public function execute(array $request)
     {
+        if (Configuration::getConfig('system', 'enable_maintenance_mode')) {
+            return new Response('503 Service Unavailable', 503);
+        }
+
         $bridgeFactory = new BridgeFactory();
 
-        $bridgeClassName = null;
-        if (isset($request['bridge'])) {
-            $bridgeClassName = $bridgeFactory->sanitizeBridgeName($request['bridge']);
-        }
-
-        if ($bridgeClassName === null) {
-            throw new \InvalidArgumentException('Bridge name invalid!');
-        }
+        $bridgeClassName = $bridgeFactory->createBridgeClassName($request['bridge'] ?? '');
 
         $format = $request['format'] ?? null;
         if (!$format) {
             throw new \Exception('You must specify a format!');
         }
-        if (!$bridgeFactory->isWhitelisted($bridgeClassName)) {
+        if (!$bridgeFactory->isEnabled($bridgeClassName)) {
             throw new \Exception('This bridge is not whitelisted');
         }
 
@@ -41,8 +38,7 @@ class DisplayAction implements ActionInterface
         $bridge = $bridgeFactory->create($bridgeClassName);
         $bridge->loadConfiguration();
 
-        $noproxy = array_key_exists('_noproxy', $request)
-            && filter_var($request['_noproxy'], FILTER_VALIDATE_BOOLEAN);
+        $noproxy = array_key_exists('_noproxy', $request) && filter_var($request['_noproxy'], FILTER_VALIDATE_BOOLEAN);
 
         if (Configuration::getConfig('proxy', 'url') && Configuration::getConfig('proxy', 'by_bridge') && $noproxy) {
             define('NOPROXY', true);
@@ -95,15 +91,16 @@ class DisplayAction implements ActionInterface
 
         $cache = $cacheFactory->create();
         $cache->setScope('');
-        $cache->purgeCache(86400); // 24 hours
         $cache->setKey($cache_params);
+        // This cache purge will basically delete all cache items older than 24h, regardless of scope and key
+        $cache->purgeCache(86400);
 
         $items = [];
         $infos = [];
         $mtime = $cache->getTime();
 
         if (
-            $mtime !== false
+            $mtime
             && (time() - $cache_timeout < $mtime)
             && !Debug::isEnabled()
         ) {
@@ -219,7 +216,7 @@ class DisplayAction implements ActionInterface
         $cache = $cacheFactory->create();
         $cache->setScope('error_reporting');
         $cache->setkey([$bridgeName . '_' . $code]);
-        $cache->purgeCache(86400); // 24 hours
+
         if ($report = $cache->loadData()) {
             $report = Json::decode($report);
             $report['time'] = time();
