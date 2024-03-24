@@ -1,25 +1,11 @@
 <?php
 
-class NyaaTorrentsBridge extends FeedExpander
+class NyaaTorrentsBridge extends BridgeAbstract
 {
     const MAINTAINER = 'ORelio & Jisagi';
     const NAME = 'NyaaTorrents';
     const URI = 'https://nyaa.si/';
     const DESCRIPTION = 'Returns the newest torrents, with optional search criteria.';
-    const MAX_ITEMS = 20;
-    const CUSTOM_FIELD_PREFIX = 'nyaa:';
-    const CUSTOM_FIELDS = [
-        self::CUSTOM_FIELD_PREFIX . 'seeders' => 'seeders',
-        self::CUSTOM_FIELD_PREFIX . 'leechers' => 'leechers',
-        self::CUSTOM_FIELD_PREFIX . 'downloads' => 'downloads',
-        self::CUSTOM_FIELD_PREFIX . 'infoHash' => 'infoHash',
-        self::CUSTOM_FIELD_PREFIX . 'categoryId' => 'categoryId',
-        self::CUSTOM_FIELD_PREFIX . 'category' => 'category',
-        self::CUSTOM_FIELD_PREFIX . 'size' => 'size',
-        self::CUSTOM_FIELD_PREFIX . 'comments' => 'comments',
-        self::CUSTOM_FIELD_PREFIX . 'trusted' => 'trusted',
-        self::CUSTOM_FIELD_PREFIX . 'remake' => 'remake'
-    ];
     const PARAMETERS = [
         [
             'f' => [
@@ -74,6 +60,43 @@ class NyaaTorrentsBridge extends FeedExpander
         ]
     ];
 
+    public function collectData()
+    {
+        $feedParser = new FeedParser();
+        $feed = $feedParser->parseFeed(getContents($this->getURI()));
+
+        foreach ($feed['items'] as $item) {
+            $item['enclosures'] = [$item['uri']];
+            $item['uri'] = str_replace('.torrent', '', $item['uri']);
+            $item['uri'] = str_replace('/download/', '/view/', $item['uri']);
+            $item['id'] = str_replace('https://nyaa.si/view/', '', $item['uri']);
+            $dom = getSimpleHTMLDOMCached($item['uri']);
+            if ($dom) {
+                $description = $dom->find('#torrent-description', 0)->innertext ?? '';
+                $item['content'] = markdownToHtml(html_entity_decode($description));
+
+                $magnet = $dom->find('div.panel-footer.clearfix > a', 1)->href;
+                // can't put raw magnet link in enclosure, this gives information on
+                // magnet contents and works a way to sent magnet value
+                $magnet = 'https://torrent.parts/#' . html_entity_decode($magnet);
+                array_push($item['enclosures'], $magnet);
+            }
+            $this->items[] = $item;
+            if (count($this->items) >= 10) {
+                break;
+            }
+        }
+    }
+
+    public function getName()
+    {
+        $name = parent::getName();
+        $name .= $this->getInput('u') ? ' - ' . $this->getInput('u') : '';
+        $name .= $this->getInput('q') ? ' - ' . $this->getInput('q') : '';
+        $name .= $this->getInput('c') ? ' (' . $this->getKey('c') . ')' : '';
+        return $name;
+    }
+
     public function getIcon()
     {
         return self::URI . 'static/favicon.png';
@@ -81,64 +104,12 @@ class NyaaTorrentsBridge extends FeedExpander
 
     public function getURI()
     {
-        return self::URI . '?page=rss&s=id&o=desc&'
-            . http_build_query([
-                'f' => $this->getInput('f'),
-                'c' => $this->getInput('c'),
-                'q' => $this->getInput('q'),
-                'u' => $this->getInput('u')
-            ]);
-    }
-
-    public function collectData()
-    {
-        $content = getContents($this->getURI());
-        $content = $this->fixCustomFields($content);
-        $rssContent = simplexml_load_string(trim($content));
-        $this->collectRss2($rssContent, self::MAX_ITEMS);
-    }
-
-    private function fixCustomFields($content)
-    {
-        $broken = array_keys(self::CUSTOM_FIELDS);
-        $fixed = array_values(self::CUSTOM_FIELDS);
-        return str_replace($broken, $fixed, $content);
-    }
-
-    protected function parseItem($newItem)
-    {
-        $item = parent::parseRss2Item($newItem);
-
-        // Add nyaa custom fields
-        $item['id'] = str_replace(['https://nyaa.si/download/', '.torrent'], '', $item['uri']);
-        foreach (array_values(self::CUSTOM_FIELDS) as $value) {
-            $item[$value] = (string) $newItem->$value;
-        }
-
-        //Convert URI from torrent file to web page
-        $item['uri'] = str_replace('/download/', '/view/', $item['uri']);
-        $item['uri'] = str_replace('.torrent', '', $item['uri']);
-
-        if ($item_html = getSimpleHTMLDOMCached($item['uri'])) {
-            //Retrieve full description from page contents
-            $item_desc = str_get_html(
-                markdownToHtml(html_entity_decode($item_html->find('#torrent-description', 0)->innertext))
-            );
-
-            //Retrieve image for thumbnail or generic logo fallback
-            $item_image = $this->getURI() . 'static/img/avatar/default.png';
-            foreach ($item_desc->find('img') as $img) {
-                if (strpos($img->src, 'prez') === false) {
-                    $item_image = $img->src;
-                    break;
-                }
-            }
-
-            //Add expanded fields to the current item
-            $item['enclosures'] = [$item_image];
-            $item['content'] = $item_desc;
-        }
-
-        return $item;
+        $params = [
+            'f' => $this->getInput('f'),
+            'c' => $this->getInput('c'),
+            'q' => $this->getInput('q'),
+            'u' => $this->getInput('u'),
+        ];
+        return self::URI . '?page=rss&s=id&o=desc&' . http_build_query($params);
     }
 }

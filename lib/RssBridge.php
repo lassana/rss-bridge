@@ -2,100 +2,124 @@
 
 final class RssBridge
 {
-    public function main(array $argv = [])
-    {
-        if ($argv) {
-            parse_str(implode('&', array_slice($argv, 1)), $cliArgs);
-            $request = $cliArgs;
-        } else {
-            $request = array_merge($_GET, $_POST);
-        }
+    private static CacheInterface $cache;
+    private static Logger $logger;
+    private static HttpClient $httpClient;
 
-        try {
-            $this->run($request);
-        } catch (\Throwable $e) {
-            Logger::error('Exception in main', ['e' => $e]);
-            http_response_code(500);
-            print render(__DIR__ . '/../templates/error.html.php', ['e' => $e]);
+    public function __construct()
+    {
+        self::$logger = new SimpleLogger('rssbridge');
+        if (Debug::isEnabled()) {
+            self::$logger->addHandler(new StreamHandler(Logger::DEBUG));
+        } else {
+            self::$logger->addHandler(new StreamHandler(Logger::INFO));
+        }
+        self::$httpClient = new CurlHttpClient();
+        $cacheFactory = new CacheFactory(self::$logger);
+        if (Debug::isEnabled()) {
+            self::$cache = $cacheFactory->create('array');
+        } else {
+            self::$cache = $cacheFactory->create();
         }
     }
 
-    private function run($request): void
+    public function main(array $argv = []): Response
     {
-        Configuration::verifyInstallation();
-
-        $customConfig = [];
-        if (file_exists(__DIR__ . '/../config.ini.php')) {
-            $customConfig = parse_ini_file(__DIR__ . '/../config.ini.php', true, INI_SCANNER_TYPED);
-        }
-        Configuration::loadConfiguration($customConfig, getenv());
-
-        set_error_handler(function ($code, $message, $file, $line) {
-            if ((error_reporting() & $code) === 0) {
-                return false;
-            }
-            $text = sprintf(
-                '%s at %s line %s',
-                sanitize_root($message),
-                sanitize_root($file),
-                $line
-            );
-            Logger::warning($text);
-            if (Debug::isEnabled()) {
-                // todo: extract to log handler
-                print sprintf("<pre>%s</pre>\n", e($text));
-            }
-        });
-
-        // There might be some fatal errors which are not caught by set_error_handler() or \Throwable.
-        register_shutdown_function(function () {
-            $error = error_get_last();
-            if ($error) {
-                $message = sprintf(
-                    '(shutdown) %s: %s in %s line %s',
-                    $error['type'],
-                    sanitize_root($error['message']),
-                    sanitize_root($error['file']),
-                    $error['line']
-                );
-                Logger::error($message);
-                if (Debug::isEnabled()) {
-                    // todo: extract to log handler
-                    print sprintf("<pre>%s</pre>\n", e($message));
-                }
-            }
-        });
-
-        // Consider: ini_set('error_reporting', E_ALL & ~E_DEPRECATED);
-        date_default_timezone_set(Configuration::getConfig('system', 'timezone'));
-
-        if (Configuration::getConfig('authentication', 'enable')) {
-            $authenticationMiddleware = new AuthenticationMiddleware();
-            $authenticationMiddleware();
+        if ($argv) {
+            parse_str(implode('&', array_slice($argv, 1)), $cliArgs);
+            $request = Request::fromCli($cliArgs);
+        } else {
+            $request = Request::fromGlobals();
         }
 
-        foreach ($request as $key => $value) {
+        foreach ($request->toArray() as $key => $value) {
             if (!is_string($value)) {
-                throw new \Exception("Query parameter \"$key\" is not a string.");
+                return new Response(render(__DIR__ . '/../templates/error.html.php', [
+                    'message' => "Query parameter \"$key\" is not a string.",
+                ]), 400);
             }
         }
 
-        $actionName = $request['action'] ?? 'Frontpage';
-        $actionName = strtolower($actionName) . 'Action';
-        $actionName = implode(array_map('ucfirst', explode('-', $actionName)));
+        if (Configuration::getConfig('system', 'enable_maintenance_mode')) {
+            return new Response(render(__DIR__ . '/../templates/error.html.php', [
+                'title'     => '503 Service Unavailable',
+                'message'   => 'RSS-Bridge is down for maintenance.',
+            ]), 503);
+        }
 
+        // HTTP Basic auth check
+        if (Configuration::getConfig('authentication', 'enable')) {
+            if (Configuration::getConfig('authentication', 'password') === '') {
+                return new Response('The authentication password cannot be the empty string', 500);
+            }
+            $user = $request->server('PHP_AUTH_USER');
+            $password = $request->server('PHP_AUTH_PW');
+            if ($user === null || $password === null) {
+                $html = render(__DIR__ . '/../templates/error.html.php', [
+                    'message' => 'Please authenticate in order to access this instance!',
+                ]);
+                return new Response($html, 401, ['WWW-Authenticate' => 'Basic realm="RSS-Bridge"']);
+            }
+            if (
+                (Configuration::getConfig('authentication', 'username') !== $user)
+                || (! hash_equals(Configuration::getConfig('authentication', 'password'), $password))
+            ) {
+                $html = render(__DIR__ . '/../templates/error.html.php', [
+                    'message' => 'Please authenticate in order to access this instance!',
+                ]);
+                return new Response($html, 401, ['WWW-Authenticate' => 'Basic realm="RSS-Bridge"']);
+            }
+            // At this point the username and password was correct
+        }
+
+        // Add token as attribute to request
+        $request = $request->withAttribute('token', $request->get('token'));
+
+        // Token authentication check
+        if (Configuration::getConfig('authentication', 'token')) {
+            if (! $request->attribute('token')) {
+                return new Response(render(__DIR__ . '/../templates/token.html.php', [
+                    'message' => '',
+                ]), 401);
+            }
+            if (! hash_equals(Configuration::getConfig('authentication', 'token'), $request->attribute('token'))) {
+                return new Response(render(__DIR__ . '/../templates/token.html.php', [
+                    'message' => 'Invalid token',
+                ]), 401);
+            }
+        }
+
+        $action = $request->get('action', 'Frontpage');
+        $actionName = strtolower($action) . 'Action';
+        $actionName = implode(array_map('ucfirst', explode('-', $actionName)));
         $filePath = __DIR__ . '/../actions/' . $actionName . '.php';
         if (!file_exists($filePath)) {
-            throw new \Exception(sprintf('Invalid action: %s', $actionName));
+            return new Response(render(__DIR__ . '/../templates/error.html.php', ['message' => 'Invalid action']), 400);
         }
-        $className = '\\' . $actionName;
-        $action = new $className();
 
-        $response = $action->execute($request);
+        $className = '\\' . $actionName;
+        $actionObject = new $className();
+
+        $response = $actionObject->execute($request);
+
         if (is_string($response)) {
-            print $response;
-        } elseif ($response instanceof Response) {
-            $response->send();
+            $response = new Response($response);
         }
+        return $response;
+    }
+
+    public static function getCache(): CacheInterface
+    {
+        return self::$cache;
+    }
+
+    public static function getLogger(): Logger
+    {
+        return self::$logger;
+    }
+
+    public static function getHttpClient(): HttpClient
+    {
+        return self::$httpClient;
     }
 }

@@ -29,11 +29,12 @@ class VkBridge extends BridgeAbstract
         'https://vk.com/groupname/anythingelse' => ['u' => 'groupname'],
         'https://vk.com/groupname?w=somethingelse' => ['u' => 'groupname'],
         'https://vk.com/with_underscore' => ['u' => 'with_underscore'],
+        'https://vk.com/vk.cats' => ['u' => 'vk.cats'],
     ];
 
     protected $pageName;
     protected $tz = 0;
-    private $urlRegex = '/vk\.com\/([\w]+)/';
+    private $urlRegex = '/vk\.com\/([\w.]+)/';
 
     public function getURI()
     {
@@ -76,15 +77,18 @@ class VkBridge extends BridgeAbstract
                 break;
             }
         }
-        $pageName = $html->find('.page_name', 0);
+        $pageName = $html->find('meta[property="og:title"]', 0);
         if (is_object($pageName)) {
-            $pageName = $pageName->plaintext;
-            $this->pageName = htmlspecialchars_decode($pageName);
+            $pageName = $pageName->getAttribute('content');
+            $this->pageName = $pageName;
         }
         foreach ($html->find('div.replies') as $comment_block) {
             $comment_block->outertext = '';
         }
-        $html->load($html->save());
+
+        // expensive operation
+        $save = $html->save();
+        $html->load($save);
 
         $pinned_post_item = null;
         $last_post_id = 0;
@@ -155,8 +159,8 @@ class VkBridge extends BridgeAbstract
                     $article_author_selector = 'div.article_snippet__author';
                     $article_thumb_selector = 'div.article_snippet__image';
                 }
-                $article_title = $article->find($article_title_selector, 0)->innertext;
-                $article_author = $article->find($article_author_selector, 0)->innertext;
+                $article_title = $article->find($article_title_selector, 0)->innertext ?? '';
+                $article_author = $article->find($article_author_selector, 0)->innertext ?? '';
                 $article_link = $article->getAttribute('href');
                 $article_img_element_style = $article->find($article_thumb_selector, 0)->getAttribute('style');
                 preg_match('/background-image: url\((.*)\)/', $article_img_element_style, $matches);
@@ -311,6 +315,13 @@ class VkBridge extends BridgeAbstract
                 $copy_quote->outertext = "<br>Reposted ($copy_quote_author): <br>$copy_quote_content";
             }
 
+            foreach ($post->find('.PrimaryAttachment .PhotoPrimaryAttachment') as $pa) {
+                $img = $pa->find('.PhotoPrimaryAttachment__imageElement', 0);
+                if (is_object($img)) {
+                    $pa->outertext = $img->outertext;
+                }
+            }
+
             foreach ($post->find('.SecondaryAttachment') as $sa) {
                 $sa_href = $sa->getAttribute('href');
                 if (!$sa_href) {
@@ -448,7 +459,9 @@ class VkBridge extends BridgeAbstract
 
     private function getTitle($content)
     {
-        preg_match('/^["\w\ \p{L}\(\)\?#«»-]+/mu', htmlspecialchars_decode($content), $result);
+        $content = explode('<br>', $content)[0];
+        $content = strip_tags($content);
+        preg_match('/^[:\,"\w\ \p{L}\(\)\?#«»\-\–\—||&\.%\\₽\/+\;\!]+/mu', htmlspecialchars_decode($content), $result);
         if (count($result) == 0) {
             return 'untitled';
         }
@@ -488,25 +501,29 @@ class VkBridge extends BridgeAbstract
 
     private function getContents()
     {
-        $header = ['Accept-language: en', 'Cookie: remixlang=3'];
+        $httpHeaders = [
+            'Accept-language: en',
+            'Cookie: remixlang=3',
+        ];
         $redirects = 0;
         $uri = $this->getURI();
 
         while ($redirects < 2) {
-            $response = getContents($uri, $header, [CURLOPT_FOLLOWLOCATION => false], true);
+            $response = getContents($uri, $httpHeaders, [CURLOPT_FOLLOWLOCATION => false], true);
 
             if (in_array($response['code'], [200, 304])) {
                 return $response['content'];
             }
 
-            $uri = urljoin(self::URI, $response['header']['location'][0]);
+            $headers = $response['headers'];
+            $uri = urljoin(self::URI, $headers['location'][0]);
 
             if (str_contains($uri, '/429.html')) {
                 returnServerError('VK responded "Too many requests"');
             }
 
             if (!preg_match('#^https?://vk.com/#', $uri)) {
-                returnServerError('Unexpected redirect location');
+                returnServerError('Unexpected redirect location: ' . $uri);
             }
 
             $redirects++;

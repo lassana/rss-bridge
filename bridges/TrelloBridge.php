@@ -648,7 +648,7 @@ class TrelloBridge extends BridgeAbstract
                 $action->type
             ];
             if (isset($action->data->card)) {
-                $item['categories'][] = $action->data->card->name;
+                $item['categories'][] = $action->data->card->name ?? $action->data->card->id;
                 $item['uri'] = 'https://trello.com/c/'
                     . $action->data->card->shortLink
                     . '#action-'
@@ -670,7 +670,15 @@ class TrelloBridge extends BridgeAbstract
     {
         $regex = '/^(https?:\/\/)?trello\.com\/([bc])\/([^\/?\n]+)/';
         if (preg_match($regex, $url, $matches) > 0) {
-            return [$matches[2] => $matches[3]];
+            if ($matches[2] == 'b') {
+                $context = 'Board';
+            } else if ($matches[2] == 'c') {
+                $context = 'Card';
+            }
+            return [
+                'context' => $context,
+                $matches[2] => $matches[3]
+            ];
         } else {
             return null;
         }

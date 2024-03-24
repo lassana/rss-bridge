@@ -1,44 +1,127 @@
 <?php
 
-class CarThrottleBridge extends FeedExpander
+class CarThrottleBridge extends BridgeAbstract
 {
-    const NAME = 'Car Throttle ';
-    const URI = 'https://www.carthrottle.com';
+    const NAME = 'Car Throttle';
+    const URI = 'https://www.carthrottle.com/';
     const DESCRIPTION = 'Get the latest car-related news from Car Throttle.';
     const MAINTAINER = 't0stiman';
+    const DONATION_URI = 'https://ko-fi.com/tostiman';
+
+    const PARAMETERS = [
+        'Show articles from these categories:' => [
+            'news' => [
+                'name' => 'news',
+                'type' => 'checkbox'
+            ],
+            'reviews' => [
+                'name' => 'reviews',
+                'type' => 'checkbox'
+            ],
+            'features' => [
+                'name' => 'features',
+                'type' => 'checkbox'
+            ],
+            'videos' => [
+                'name' => 'videos',
+                'type' => 'checkbox'
+            ],
+            'gaming' => [
+                'name' => 'gaming',
+                'type' => 'checkbox'
+            ]
+        ]
+    ];
 
     public function collectData()
     {
-        $this->collectExpandableDatas('https://www.carthrottle.com/rss', 10);
+        $this->items = [];
+
+        $this->handleCategory('news');
+        $this->handleCategory('reviews');
+        $this->handleCategory('features');
+        $this->handleCategory2('videos', 'video');
+        $this->handleCategory('gaming');
     }
 
-    protected function parseItem($feedItem)
+    private function handleCategory($category)
     {
-        $item = parent::parseItem($feedItem);
+        if ($this->getInput($category)) {
+            $this->getArticles($category);
+        }
+    }
 
-        //fetch page
-        $articlePage = getSimpleHTMLDOMCached($feedItem->link)
-            or returnServerError('Could not retrieve ' . $feedItem->link);
+    private function handleCategory2($categoryParameter, $categoryURLname)
+    {
+        if ($this->getInput($categoryParameter)) {
+            $this->getArticles($categoryURLname);
+        }
+    }
 
-        $subtitle = $articlePage->find('p.standfirst', 0);
-        $article = $articlePage->find('div.content_field', 0);
+    private function getArticles($category)
+    {
+        $categoryPage = getSimpleHTMLDOMCached(self::URI . $category);
 
-        $item['content'] = str_get_html($subtitle . $article);
+        //for each post
+        foreach ($categoryPage->find('div.cmg-card') as $post) {
+            $item = [];
 
-        //convert <iframe>s to <a>s. meant for embedded videos.
-        foreach ($item['content']->find('iframe') as $found) {
-            $iframeUrl = $found->getAttribute('src');
+            $titleElement = $post->find('div.title a')[0];
+            $post_uri = self::URI . $titleElement->getAttribute('href');
 
-            if ($iframeUrl) {
-                $found->outertext = '<a href="' . $iframeUrl . '">' . $iframeUrl . '</a>';
+            if (!isset($post_uri) || $post_uri == '') {
+                continue;
             }
+
+            $item['uri'] = $post_uri;
+            $item['title'] = $titleElement->innertext;
+
+            $articlePage = getSimpleHTMLDOMCached($item['uri']);
+
+            $item['author'] = $this->parseAuthor($articlePage);
+
+            $articleElement = $articlePage->find('article')[0];
+
+            //remove ads
+            foreach ($articleElement->find('aside') as $ad) {
+                $ad->outertext = '';
+            }
+
+            $summary = $articleElement->find('div.summary')[0];
+
+            //remove header so we are left with the article content
+            foreach ($articleElement->find('header') as $found) {
+                $found->outertext = '';
+            }
+
+            //remove comments (registering on carthrottle.com is impossible so the comment sections are empty anyway)
+            foreach ($articleElement->find('#lbs-comments') as $found) {
+                $found->outertext = '';
+            }
+
+            //these are supposed to be hidden
+            foreach ($articleElement->find('.visually-hidden') as $found) {
+                $found->outertext = '';
+            }
+
+            $item['content'] = $summary . $articleElement;
+
+            array_push($this->items, $item);
+        }
+    }
+
+    private function parseAuthor($articlePage)
+    {
+        $authorDivs = $articlePage->find('div address');
+        if (!$authorDivs) {
+            return '';
         }
 
-        //remove scripts from the text
-        foreach ($item['content']->find('script') as $remove) {
-            $remove->outertext = '';
+        $a = $authorDivs[0]->find('a');
+        if ($a) {
+            return $a->innertext;
         }
 
-        return $item;
+        return $authorDivs[0]->innertext;
     }
 }

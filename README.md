@@ -2,12 +2,25 @@
 
 ![RSS-Bridge](static/logo_600px.png)
 
-RSS-Bridge is a PHP project capable of generating RSS and Atom feeds for websites that don't have one.
+RSS-Bridge is a PHP web application.
+
+It generates web feeds for websites that don't have one.
+
+Officially hosted instance: https://rss-bridge.org/bridge01/
+
+IRC channel #rssbridge at https://libera.chat/
+
+[Full documentation](https://rss-bridge.github.io/rss-bridge/index.html)
+
+Alternatively find another
+[public instance](https://rss-bridge.github.io/rss-bridge/General/Public_Hosts.html).
+
+Requires minimum PHP 7.4.
+
 
 [![LICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg)](UNLICENSE)
 [![GitHub release](https://img.shields.io/github/release/rss-bridge/rss-bridge.svg?logo=github)](https://github.com/rss-bridge/rss-bridge/releases/latest)
 [![irc.libera.chat](https://img.shields.io/badge/irc.libera.chat-%23rssbridge-blue.svg)](https://web.libera.chat/#rssbridge)
-[![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#rssbridge:libera.chat)
 [![Actions Status](https://img.shields.io/github/actions/workflow/status/RSS-Bridge/rss-bridge/tests.yml?branch=master&label=GitHub%20Actions&logo=github)](https://github.com/RSS-Bridge/rss-bridge/actions)
 
 |||
@@ -15,65 +28,167 @@ RSS-Bridge is a PHP project capable of generating RSS and Atom feeds for website
 |![Screenshot #1](/static/screenshot-1.png?raw=true)|![Screenshot #2](/static/screenshot-2.png?raw=true)|
 |![Screenshot #3](/static/screenshot-3.png?raw=true)|![Screenshot #4](/static/screenshot-4.png?raw=true)|
 |![Screenshot #5](/static/screenshot-5.png?raw=true)|![Screenshot #6](/static/screenshot-6.png?raw=true)|
-|![Screenshot #7](/static/twitter-form.png?raw=true)|![Screenshot #8](/static/twitter-rasmus.png?raw=true)|
 
-## A subset of bridges
+## A subset of bridges (16/447)
 
-* `YouTube` : YouTube user channel, playlist or search
-* `Twitter` : Return keyword/hashtag search or user timeline
-* `Telegram` : Return the latest posts from a public group
-* `Reddit` : Return the latest posts from a subreddit or user
-* `Filter` : Filter an existing feed url
-* `Vk` : Latest posts from a user or group
-* `FeedMerge` : Merge two or more existing feeds into one
-* `Twitch` : Fetch the latest videos from a channel
-* `ThePirateBay` : Returns the newest indexed torrents from [The Pirate Bay](https://thepiratebay.se/) with keywords
-
-And [many more](bridges/), thanks to the community!
-
-[Full documentation](https://rss-bridge.github.io/rss-bridge/index.html)
-
-Check out RSS-Bridge right now on https://rss-bridge.org/bridge01 or find another
-[public instance](https://rss-bridge.github.io/rss-bridge/General/Public_Hosts.html).
+* `CssSelectorBridge`: [Scrape out a feed using CSS selectors](https://rss-bridge.org/bridge01/#bridge-CssSelectorBridge)
+* `FeedMergeBridge`: [Combine multiple feeds into one](https://rss-bridge.org/bridge01/#bridge-FeedMergeBridge)
+* `FeedReducerBridge`: [Reduce a noisy feed by some percentage](https://rss-bridge.org/bridge01/#bridge-FeedReducerBridge)
+* `FilterBridge`: [Filter a feed by excluding/including items by keyword](https://rss-bridge.org/bridge01/#bridge-FilterBridge)
+* `GettrBridge`: [Fetches the latest posts from a GETTR user](https://rss-bridge.org/bridge01/#bridge-GettrBridge)
+* `MastodonBridge`: [Fetches statuses from a Mastodon (ActivityPub) instance](https://rss-bridge.org/bridge01/#bridge-MastodonBridge)
+* `RedditBridge`: [Fetches posts from a user/subredit (with filtering options)](https://rss-bridge.org/bridge01/#bridge-RedditBridge)
+* `RumbleBridge`: [Fetches channel/user videos](https://rss-bridge.org/bridge01/#bridge-RumbleBridge)
+* `SoundcloudBridge`: [Fetches music by username](https://rss-bridge.org/bridge01/#bridge-SoundcloudBridge)
+* `TelegramBridge`: [Fetches posts from a public channel](https://rss-bridge.org/bridge01/#bridge-TelegramBridge)
+* `ThePirateBayBridge:` [Fetches torrents by search/user/category](https://rss-bridge.org/bridge01/#bridge-ThePirateBayBridge)
+* `TikTokBridge`: [Fetches posts by username](https://rss-bridge.org/bridge01/#bridge-TikTokBridge)
+* `TwitchBridge`: [Fetches videos from channel](https://rss-bridge.org/bridge01/#bridge-TwitchBridge)
+* `VkBridge`: [Fetches posts from user/group](https://rss-bridge.org/bridge01/#bridge-VkBridge)
+* `XPathBridge`: [Scrape out a feed using XPath expressions](https://rss-bridge.org/bridge01/#bridge-XPathBridge)
+* `YoutubeBridge`: [Fetches videos by username/channel/playlist/search](https://rss-bridge.org/bridge01/#bridge-YoutubeBridge)
+* `YouTubeCommunityTabBridge`: [Fetches posts from a channel's community tab](https://rss-bridge.org/bridge01/#bridge-YouTubeCommunityTabBridge)
 
 ## Tutorial
 
-RSS-Bridge requires php 7.4 (or higher).
+### How to install on traditional shared web hosting
 
-### Install with git:
+RSS-Bridge can basically be unzipped in a web folder. Should be working instantly.
 
-```bash
+Latest zip as of Sep 2023: https://github.com/RSS-Bridge/rss-bridge/archive/refs/tags/2023-09-24.zip
+
+### How to install on Debian 12 (nginx + php-fpm)
+
+These instructions have been tested on a fresh Debian 12 VM from Digital Ocean (1vcpu-512mb-10gb, 5 USD/month).
+
+```shell
+timedatectl set-timezone Europe/Oslo
+
+apt install git nginx php8.2-fpm php-mbstring php-simplexml php-curl php-intl
+
+# Create a new user account
+useradd --shell /bin/bash --create-home rss-bridge
+
 cd /var/www
-git clone https://github.com/RSS-Bridge/rss-bridge.git
 
-# Give the http user write permission to the cache folder
-chown www-data:www-data /var/www/rss-bridge/cache
+# Create folder and change ownership
+mkdir rss-bridge && chown rss-bridge:rss-bridge rss-bridge/
 
-# Optionally copy over the default config file
-cp config.default.ini.php config.ini.php
+# Become user
+su rss-bridge
+
+# Fetch latest master
+git clone https://github.com/RSS-Bridge/rss-bridge.git rss-bridge/
+cd rss-bridge
+
+# Copy over the default config
+cp -v config.default.ini.php config.ini.php
+
+# Give full permissions only to owner (rss-bridge)
+chmod 700 -R ./
+
+# Give read and execute to others (nginx and php-fpm)
+chmod o+rx ./ ./static
+
+# Give read to others (nginx)
+chmod o+r -R ./static
 ```
 
-Example config for nginx:
+Nginx config:
 
 ```nginx
-# /etc/nginx/sites-enabled/rssbridge
+# /etc/nginx/sites-enabled/rss-bridge.conf
+
 server {
     listen 80;
     server_name example.com;
-    root /var/www/rss-bridge;
-    index index.php;
+    access_log /var/log/nginx/rss-bridge.access.log;
+    error_log /var/log/nginx/rss-bridge.error.log;
+    log_not_found off;
 
-    location ~ \.php$ {
+    # Intentionally not setting a root folder here
+
+    # autoindex is off by default but feels good to explicitly turn off
+    autoindex off;
+
+    # Static content only served here
+    location /static/ {
+        alias /var/www/rss-bridge/static/;
+    }
+
+    # Pass off to php-fpm when location is exactly /
+    location = / {
+        root /var/www/rss-bridge/;
         include snippets/fastcgi-php.conf;
-        fastcgi_read_timeout 60s;
-        fastcgi_pass unix:/run/php/php-fpm.sock;
+        fastcgi_read_timeout 45s;
+        fastcgi_pass unix:/run/php/rss-bridge.sock;
+    }
+
+    # Reduce spam
+    location = /favicon.ico {
+        access_log off;
+    }
+
+    # Reduce spam
+    location = /robots.txt {
+        access_log off;
     }
 }
 ```
 
-### Install with Docker:
+PHP FPM pool config:
+```ini
+; /etc/php/8.2/fpm/pool.d/rss-bridge.conf
 
-Install by using docker image from Docker Hub:
+[rss-bridge]
+
+user = rss-bridge
+group = rss-bridge
+
+listen = /run/php/rss-bridge.sock
+
+listen.owner = www-data
+listen.group = www-data
+
+pm = static
+pm.max_children = 10
+pm.max_requests = 500
+```
+
+PHP ini config:
+```ini
+; /etc/php/8.2/fpm/conf.d/30-rss-bridge.ini
+
+max_execution_time = 15
+memory_limit = 64M
+```
+
+Restart fpm and nginx:
+
+```shell
+# Lint and restart php-fpm
+php-fpm8.2 -t && systemctl restart php8.2-fpm
+
+# Lint and restart nginx
+nginx -t && systemctl restart nginx
+```
+
+### How to install from Composer
+
+Install the latest release.
+
+```shell
+cd /var/www
+composer create-project -v --no-dev rss-bridge/rss-bridge
+```
+
+### How to install with Caddy
+
+TODO. See https://github.com/RSS-Bridge/rss-bridge/issues/3785
+
+### Install from Docker Hub:
+
+Install by downloading the docker image from Docker Hub:
 
 ```bash
 # Create container
@@ -85,7 +200,7 @@ docker start rss-bridge
 
 Browse http://localhost:3000/
 
-Install by locally building the image:
+### Install by locally building from Dockerfile
 
 ```bash
 # Build image from Dockerfile
@@ -94,13 +209,13 @@ docker build -t rss-bridge .
 # Create container
 docker create --name rss-bridge --publish 3000:80 rss-bridge
 
-# Start the container
+# Start container
 docker start rss-bridge
 ```
 
 Browse http://localhost:3000/
 
-#### Install with docker-compose
+### Install with docker-compose
 
 Create a `docker-compose.yml` file locally with with the following content:
 ```yml
@@ -123,19 +238,78 @@ docker-compose up
 
 Browse http://localhost:3000/
 
-### Alternative installation methods
+### Other installation methods
 
 [![Deploy on Scalingo](https://cdn.scalingo.com/deploy/button.svg)](https://my.scalingo.com/deploy?source=https://github.com/sebsauvage/rss-bridge)
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 [![Deploy to Cloudron](https://cloudron.io/img/button.svg)](https://www.cloudron.io/store/com.rssbridgeapp.cloudronapp.html)
+[![Run on PikaPods](https://www.pikapods.com/static/run-button.svg)](https://www.pikapods.com/pods?run=rssbridge)
 
-The Heroku quick deploy currently does not work. It might possibly work if you fork this repo and
+The Heroku quick deploy currently does not work. It might work if you fork this repo and
 modify the `repository` in `scalingo.json`. See https://github.com/RSS-Bridge/rss-bridge/issues/2688
 
 Learn more in
 [Installation](https://rss-bridge.github.io/rss-bridge/For_Hosts/Installation.html).
 
 ## How-to
+
+### How to fix "Access denied."
+
+Output is from php-fpm. It is unable to read index.php.
+
+    chown rss-bridge:rss-bridge /var/www/rss-bridge/index.php
+
+### How to password-protect the instance (token)
+
+Modify `config.ini.php`:
+
+    [authentication]
+
+    token = "hunter2"
+
+### How to remove all cache items
+
+As current user:
+
+    bin/cache-clear
+
+As user rss-bridge:
+
+    sudo -u rss-bridge bin/cache-clear
+
+As root:
+
+    sudo bin/cache-clear
+
+### How to remove all expired cache items
+
+    bin/cache-prune
+
+### How to fix "PHP Fatal error:  Uncaught Exception: The FileCache path is not writable"
+
+```shell
+# Give rss-bridge ownership
+chown rss-bridge:rss-bridge -R /var/www/rss-bridge/cache
+
+# Or, give www-data ownership
+chown www-data:www-data -R /var/www/rss-bridge/cache
+
+# Or, give everyone write permission
+chmod 777 -R /var/www/rss-bridge/cache
+
+# Or last ditch effort (CAREFUL)
+rm -rf /var/www/rss-bridge/cache/ && mkdir /var/www/rss-bridge/cache/
+```
+
+### How to fix "attempt to write a readonly database"
+
+The sqlite files (db, wal and shm) are not writeable.
+
+    chown -v rss-bridge:rss-bridge cache/*
+
+### How to fix "Unable to prepare statement: 1, no such table: storage"
+
+    rm cache/*
 
 ### How to create a new bridge from scratch
 
@@ -177,13 +351,83 @@ enabled_bridges[] = GettrBridge
 
 ### How to enable debug mode
 
+The 
+[debug mode](https://rss-bridge.github.io/rss-bridge/For_Developers/Debug_mode.html)
+disables the majority of caching operations.
+
     enable_debug_mode = true
 
-Learn more in [debug mode](https://rss-bridge.github.io/rss-bridge/For_Developers/Debug_mode.html).
+### How to switch to memcached as cache backend
+
+```
+[cache]
+
+; Cache backend: file (default), sqlite, memcached, null
+type = "memcached"
+```
+
+### How to switch to sqlite3 as cache backend
+
+    type = "sqlite"
+
+### How to disable bridge errors (as feed items)
+
+When a bridge fails, RSS-Bridge will produce a feed with a single item describing the error.
+
+This way, feed readers pick it up and you are notified.
+
+If you don't want this behaviour, switch the error output to `http`:
+
+    [error]
+
+    ; Defines how error messages are returned by RSS-Bridge
+    ;
+    ; "feed" = As part of the feed (default)
+    ; "http" = As HTTP error message
+    ; "none" = No errors are reported
+    output = "http"
+
+### How to accumulate errors before finally reporting it
+
+Modify `report_limit` so that an error must occur 3 times before it is reported.
+
+    ; Defines how often an error must occur before it is reported to the user
+    report_limit = 3
+
+The report count is reset to 0 each day.
+
+### How to password-protect the instance (HTTP Basic Auth)
+
+    [authentication]
+
+    enable = true
+    username = "alice"
+    password = "cat"
+
+Will typically require feed readers to be configured with the credentials.
+
+It may also be possible to manually include the credentials in the URL:
+
+https://alice:cat@rss-bridge.org/bridge01/?action=display&bridge=FabriceBellardBridge&format=Html
 
 ### How to create a new output format
 
-[Create a new format](https://rss-bridge.github.io/rss-bridge/Format_API/index.html).
+See `formats/PlaintextFormat.php` for an example.
+
+### How to run unit tests and linter
+
+These commands require that you have installed the dev dependencies in `composer.json`.
+
+    ./vendor/bin/phpunit
+    ./vendor/bin/phpcs --standard=phpcs.xml --warning-severity=0 --extensions=php -p ./
+
+https://github.com/squizlabs/PHP_CodeSniffer/wiki
+
+### How to spawn a minimal development environment
+
+    php -S 127.0.0.1:9001
+
+http://127.0.0.1:9001/
 
 ## Explanation
 
@@ -196,15 +440,19 @@ webmaster of
 See [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 RSS-Bridge uses caching to prevent services from banning your server for repeatedly updating feeds.
-The specific cache duration can be different between bridges. Cached files are deleted automatically after 24 hours.
+The specific cache duration can be different between bridges.
+Cached files are deleted automatically after 24 hours.
 
 RSS-Bridge allows you to take full control over which bridges are displayed to the user.
 That way you can host your own RSS-Bridge service with your favorite collection of bridges!
 
+Current maintainers (as of 2024): @dvikan and @Mynacol #2519
 
 ## Reference
 
-### FeedItem properties
+### Feed item structure
+
+This is the feed item structure that bridges are expected to produce.
 
 ```php
     $item = [
@@ -227,13 +475,22 @@ That way you can host your own RSS-Bridge service with your favorite collection 
     ]
 ```
 
-### Output formats:
+### Output formats
 
-* `Atom` : Atom feed, for use in feed readers
-* `Html` : Simple HTML page
-* `Json` : JSON, for consumption by other applications
-* `Mrss` : MRSS feed, for use in feed readers
-* `Plaintext` : Raw text, for consumption by other applications
+* `Atom`: Atom feed, for use in feed readers
+* `Html`: Simple HTML page
+* `Json`: JSON, for consumption by other applications
+* `Mrss`: MRSS feed, for use in feed readers
+* `Plaintext`: Raw text, for consumption by other applications
+* `Sfeed`: Text, TAB separated
+
+### Cache backends
+
+* `File`
+* `SQLite`
+* `Memcached`
+* `Array`
+* `Null`
 
 ### Licenses
 

@@ -8,15 +8,23 @@
 
 ; Only these bridges are available for feed production
 ; How to enable all bridges: enabled_bridges[] = *
-enabled_bridges[] = Youtube
-enabled_bridges[] = Twitter
-enabled_bridges[] = Telegram
-enabled_bridges[] = Reddit
-enabled_bridges[] = Filter
-enabled_bridges[] = Vk
+enabled_bridges[] = CssSelectorBridge
 enabled_bridges[] = FeedMerge
-enabled_bridges[] = Twitch
+enabled_bridges[] = FeedReducerBridge
+enabled_bridges[] = Filter
+enabled_bridges[] = GettrBridge
+enabled_bridges[] = MastodonBridge
+enabled_bridges[] = Reddit
+enabled_bridges[] = RumbleBridge
+enabled_bridges[] = SoundcloudBridge
+enabled_bridges[] = Telegram
 enabled_bridges[] = ThePirateBay
+enabled_bridges[] = TikTokBridge
+enabled_bridges[] = Twitch
+enabled_bridges[] = Vk
+enabled_bridges[] = XPathBridge
+enabled_bridges[] = Youtube
+enabled_bridges[] = YouTubeCommunityTabBridge
 
 ; Defines the timezone used by RSS-Bridge
 ; Find a list of supported timezones at
@@ -38,7 +46,13 @@ enable_debug_mode = false
 enable_maintenance_mode = false
 
 [http]
-timeout = 60
+; Operation timeout in seconds
+timeout = 15
+
+; Operation retry count in case of curl error
+retries = 2
+
+; User agent
 useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:102.0) Gecko/20100101 Firefox/102.0"
 
 ; Max http response size in MB
@@ -46,7 +60,7 @@ max_filesize = 20
 
 [cache]
 
-; Cache type: file, sqlite, memcached, null
+; Cache type: file, sqlite, memcached, array, null
 type = "file"
 
 ; Allow users to specify custom timeout for specific requests.
@@ -85,23 +99,25 @@ name = "Hidden proxy name"
 ; false = disabled (default)
 by_bridge = false
 
+[webdriver]
+
+; Sets the url of the webdriver or selenium server
+selenium_server_url = "http://localhost:4444"
+
+; Sets whether the browser should run in headless mode (no visible ui)
+; true = enabled
+; false = disabled (default)
+headless = false
+
 [authentication]
 
-; Enables basic authentication for all requests to this RSS-Bridge instance.
-;
-; Warning: You'll have to upgrade existing feeds after enabling this option!
-;
-; true  = enabled
-; false = disabled (default)
+; HTTP basic authentication
 enable = false
-
 username = "admin"
-
-; The password cannot be the empty string if authentication is enabled.
 password = ""
 
-; This will be used only for actions that require privileged access
-access_token = ""
+; Token authentication (URL)
+token = ""
 
 [error]
 

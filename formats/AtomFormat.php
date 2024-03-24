@@ -14,47 +14,63 @@ class AtomFormat extends FormatAbstract
     protected const ATOM_NS = 'http://www.w3.org/2005/Atom';
     protected const MRSS_NS = 'http://search.yahoo.com/mrss/';
 
-    const LIMIT_TITLE = 140;
-
     public function stringify()
     {
-        $feedUrl = get_current_url();
-
-        $extraInfos = $this->getExtraInfos();
-        if (empty($extraInfos['uri'])) {
-            $uri = REPOSITORY;
-        } else {
-            $uri = $extraInfos['uri'];
-        }
-
         $document = new \DomDocument('1.0', $this->getCharset());
         $document->formatOutput = true;
+
+        $feedUrl = get_current_url();
+
         $feed = $document->createElementNS(self::ATOM_NS, 'feed');
         $document->appendChild($feed);
         $feed->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:media', self::MRSS_NS);
 
-        $title = $document->createElement('title');
-        $feed->appendChild($title);
-        $title->setAttribute('type', 'text');
-        $title->appendChild($document->createTextNode($extraInfos['name']));
+        $feedArray = $this->getFeed();
+        foreach ($feedArray as $feedKey => $feedValue) {
+            if (in_array($feedKey, ['donationUri'])) {
+                continue;
+            }
+            if ($feedKey === 'name') {
+                $title = $document->createElement('title');
+                $feed->appendChild($title);
+                $title->setAttribute('type', 'text');
+                $title->appendChild($document->createTextNode($feedValue));
+            } elseif ($feedKey === 'icon') {
+                if ($feedValue) {
+                    $icon = $document->createElement('icon');
+                    $feed->appendChild($icon);
+                    $icon->appendChild($document->createTextNode($feedValue));
+
+                    $logo = $document->createElement('logo');
+                    $feed->appendChild($logo);
+                    $logo->appendChild($document->createTextNode($feedValue));
+                }
+            } elseif ($feedKey === 'uri') {
+                if ($feedValue) {
+                    $linkAlternate = $document->createElement('link');
+                    $feed->appendChild($linkAlternate);
+                    $linkAlternate->setAttribute('rel', 'alternate');
+                    $linkAlternate->setAttribute('type', 'text/html');
+                    $linkAlternate->setAttribute('href', $feedValue);
+
+                    $linkSelf = $document->createElement('link');
+                    $feed->appendChild($linkSelf);
+                    $linkSelf->setAttribute('rel', 'self');
+                    $linkSelf->setAttribute('type', 'application/atom+xml');
+                    $linkSelf->setAttribute('href', $feedUrl);
+                }
+            } elseif ($feedKey === 'itunes') {
+                // todo: skip?
+            } else {
+                $element = $document->createElement($feedKey);
+                $feed->appendChild($element);
+                $element->appendChild($document->createTextNode($feedValue));
+            }
+        }
 
         $id = $document->createElement('id');
         $feed->appendChild($id);
         $id->appendChild($document->createTextNode($feedUrl));
-
-        $uriparts = parse_url($uri);
-        if (empty($extraInfos['icon'])) {
-            $iconUrl = $uriparts['scheme'] . '://' . $uriparts['host'] . '/favicon.ico';
-        } else {
-            $iconUrl = $extraInfos['icon'];
-        }
-        $icon = $document->createElement('icon');
-        $feed->appendChild($icon);
-        $icon->appendChild($document->createTextNode($iconUrl));
-
-        $logo = $document->createElement('logo');
-        $feed->appendChild($logo);
-        $logo->appendChild($document->createTextNode($iconUrl));
 
         $feedTimestamp = gmdate(DATE_ATOM, $this->lastModified);
         $updated = $document->createElement('updated');
@@ -70,19 +86,10 @@ class AtomFormat extends FormatAbstract
         $author->appendChild($authorName);
         $authorName->appendChild($document->createTextNode($feedAuthor));
 
-        $linkAlternate = $document->createElement('link');
-        $feed->appendChild($linkAlternate);
-        $linkAlternate->setAttribute('rel', 'alternate');
-        $linkAlternate->setAttribute('type', 'text/html');
-        $linkAlternate->setAttribute('href', $uri);
 
-        $linkSelf = $document->createElement('link');
-        $feed->appendChild($linkSelf);
-        $linkSelf->setAttribute('rel', 'self');
-        $linkSelf->setAttribute('type', 'application/atom+xml');
-        $linkSelf->setAttribute('href', $feedUrl);
 
         foreach ($this->getItems() as $item) {
+            $itemArray = $item->toArray();
             $entryTimestamp = $item->getTimestamp();
             $entryTitle = $item->getTitle();
             $entryContent = $item->getContent();
@@ -109,8 +116,8 @@ class AtomFormat extends FormatAbstract
 
             if (empty($entryTitle)) {
                 $entryTitle = str_replace("\n", ' ', strip_tags($entryContent));
-                if (strlen($entryTitle) > self::LIMIT_TITLE) {
-                    $wrapPos = strpos(wordwrap($entryTitle, self::LIMIT_TITLE), "\n");
+                if (strlen($entryTitle) > 140) {
+                    $wrapPos = strpos(wordwrap($entryTitle, 140), "\n");
                     $entryTitle = substr($entryTitle, 0, $wrapPos) . '...';
                 }
             }
@@ -140,7 +147,21 @@ class AtomFormat extends FormatAbstract
             $entry->appendChild($id);
             $id->appendChild($document->createTextNode($entryID));
 
-            if (!empty($entryUri)) {
+            if (isset($itemArray['itunes'])) {
+                $feed->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:itunes', self::ITUNES_NS);
+                foreach ($itemArray['itunes'] as $itunesKey => $itunesValue) {
+                    $itunesProperty = $document->createElementNS(self::ITUNES_NS, $itunesKey);
+                    $entry->appendChild($itunesProperty);
+                    $itunesProperty->appendChild($document->createTextNode($itunesValue));
+                }
+                if (isset($itemArray['enclosure'])) {
+                    $itunesEnclosure = $document->createElement('enclosure');
+                    $entry->appendChild($itunesEnclosure);
+                    $itunesEnclosure->setAttribute('url', $itemArray['enclosure']['url']);
+                    $itunesEnclosure->setAttribute('length', $itemArray['enclosure']['length']);
+                    $itunesEnclosure->setAttribute('type', $itemArray['enclosure']['type']);
+                }
+            } elseif (!empty($entryUri)) {
                 $entryLinkAlternate = $document->createElement('link');
                 $entry->appendChild($entryLinkAlternate);
                 $entryLinkAlternate->setAttribute('rel', 'alternate');
@@ -158,7 +179,7 @@ class AtomFormat extends FormatAbstract
 
             $content = $document->createElement('content');
             $content->setAttribute('type', 'html');
-            $content->appendChild($document->createTextNode(break_annoying_html_tags($entryContent)));
+            $content->appendChild($document->createTextNode($entryContent));
             $entry->appendChild($content);
 
             foreach ($item->getEnclosures() as $enclosure) {
@@ -182,11 +203,11 @@ class AtomFormat extends FormatAbstract
             }
         }
 
-        $toReturn = $document->saveXML();
+        $xml = $document->saveXML();
 
         // Remove invalid characters
         ini_set('mbstring.substitute_character', 'none');
-        $toReturn = mb_convert_encoding($toReturn, $this->getCharset(), 'UTF-8');
-        return $toReturn;
+        $xml = mb_convert_encoding($xml, $this->getCharset(), 'UTF-8');
+        return $xml;
     }
 }

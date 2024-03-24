@@ -63,9 +63,8 @@ class GolemBridge extends FeedExpander
         );
     }
 
-    protected function parseItem($item)
+    protected function parseItem(array $item)
     {
-        $item = parent::parseItem($item);
         $item['content'] ??= '';
         $uri = $item['uri'];
 
@@ -82,11 +81,6 @@ class GolemBridge extends FeedExpander
 
             // URI without RSS feed reference
             $item['uri'] = $articlePage->find('head meta[name="twitter:url"]', 0)->content;
-
-            $author = $articlePage->find('article header .authors .authors__name', 0);
-            if ($author) {
-                $item['author'] = $author->plaintext;
-            }
 
             $categories = $articlePage->find('ul.tags__list li');
             foreach ($categories as $category) {
@@ -122,9 +116,6 @@ class GolemBridge extends FeedExpander
         // reload html, as remove() is buggy
         $article = str_get_html($article->outertext);
 
-        if ($pageHeader = $article->find('header.paged-cluster-header h1', 0)) {
-            $item .= $pageHeader;
-        }
 
         $header = $article->find('header', 0);
         foreach ($header->find('p, figure') as $element) {
@@ -138,7 +129,7 @@ class GolemBridge extends FeedExpander
             $img->src = $img->getAttribute('data-src-full');
         }
 
-        foreach ($content->find('p, h1, h3, img[src*="."]') as $element) {
+        foreach ($content->find('p, h1, h2, h3, img[src*="."]') as $element) {
             $item .= $element;
         }
 

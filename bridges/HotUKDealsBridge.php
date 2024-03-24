@@ -3273,9 +3273,12 @@ class HotUKDealsBridge extends PepperBridgeAbstract
         'context-group' => 'Deals per group',
         'context-talk' => 'Discussion Monitoring',
         'uri-group' => 'tag/',
+        'uri-deal' => 'deals/',
+        'uri-merchant' => 'search/deals?merchant-id=',
         'request-error' => 'Could not request HotUKDeals',
         'thread-error' => 'Unable to determine the thread ID. Check the URL you entered',
-        'no-results' => 'Ooops, looks like we could',
+        'no-results' => 'no results',
+        'currency' => '£',
         'relative-date-indicator' => [
             'ago',
         ],
@@ -3315,6 +3318,7 @@ class HotUKDealsBridge extends PepperBridgeAbstract
             'and '
         ],
         'date-prefixes' => [
+            'Posted ',
             'Found ',
             'Refreshed ',
             'Made hot '

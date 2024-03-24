@@ -6,18 +6,16 @@ class RaceDepartmentBridge extends FeedExpander
     const URI = 'https://racedepartment.com/';
     const DESCRIPTION = 'Get the latest (sim)racing news from RaceDepartment.';
     const MAINTAINER = 't0stiman';
+    const DONATION_URI = 'https://ko-fi.com/tostiman';
 
     public function collectData()
     {
         $this->collectExpandableDatas('https://www.racedepartment.com/ams/index.rss', 10);
     }
 
-    protected function parseItem($feedItem)
+    protected function parseItem(array $item)
     {
-        $item = parent::parseRss2Item($feedItem);
-
-        //fetch page
-        $articlePage = getSimpleHTMLDOMCached($feedItem->link);
+        $articlePage = getSimpleHTMLDOMCached($item['uri']);
 
         $coverImage = $articlePage->find('img.js-articleCoverImage', 0);
         #relative url -> absolute url

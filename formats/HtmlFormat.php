@@ -6,30 +6,33 @@ class HtmlFormat extends FormatAbstract
 
     public function stringify()
     {
-        $extraInfos = $this->getExtraInfos();
+        $queryString = $_SERVER['QUERY_STRING'];
+
+        $feedArray = $this->getFeed();
         $formatFactory = new FormatFactory();
         $buttons = [];
         $linkTags = [];
-        foreach ($formatFactory->getFormatNames() as $format) {
+        foreach ($formatFactory->getFormatNames() as $formatName) {
             // Dynamically build buttons for all formats (except HTML)
-            if ($format === 'Html') {
+            if ($formatName === 'Html') {
                 continue;
             }
-            $formatUrl = '?' . str_ireplace('format=Html', 'format=' . $format, htmlentities($_SERVER['QUERY_STRING']));
+            $formatUrl = '?' . str_ireplace('format=Html', 'format=' . $formatName, htmlentities($queryString));
             $buttons[] = [
                 'href' => $formatUrl,
-                'value' => $format,
+                'value' => $formatName,
             ];
+            $format = $formatFactory->create($formatName);
             $linkTags[] = [
                 'href' => $formatUrl,
-                'title' => $format,
-                'type' => $formatFactory->create($format)->getMimeType(),
+                'title' => $formatName,
+                'type' => $format->getMimeType(),
             ];
         }
 
-        if (Configuration::getConfig('admin', 'donations') && $extraInfos['donationUri'] !== '') {
+        if (Configuration::getConfig('admin', 'donations') && $feedArray['donationUri']) {
             $buttons[] = [
-                'href' => e($extraInfos['donationUri']),
+                'href' => e($feedArray['donationUri']),
                 'value' => 'Donate to maintainer',
             ];
         }
@@ -37,7 +40,7 @@ class HtmlFormat extends FormatAbstract
         $items = [];
         foreach ($this->getItems() as $item) {
             $items[] = [
-                'url'           => $item->getURI() ?: $extraInfos['uri'],
+                'url'           => $item->getURI() ?: $feedArray['uri'],
                 'title'         => $item->getTitle() ?? '(no title)',
                 'timestamp'     => $item->getTimestamp(),
                 'author'        => $item->getAuthor(),
@@ -49,14 +52,15 @@ class HtmlFormat extends FormatAbstract
 
         $html = render_template(__DIR__ . '/../templates/html-format.html.php', [
             'charset'   => $this->getCharset(),
-            'title'     => $extraInfos['name'],
+            'title'     => $feedArray['name'],
             'linkTags'  => $linkTags,
-            'uri'       => $extraInfos['uri'],
+            'uri'       => $feedArray['uri'],
             'buttons'   => $buttons,
             'items'     => $items,
         ]);
         // Remove invalid characters
         ini_set('mbstring.substitute_character', 'none');
-        return mb_convert_encoding($html, $this->getCharset(), 'UTF-8');
+        $html = mb_convert_encoding($html, $this->getCharset(), 'UTF-8');
+        return $html;
     }
 }
