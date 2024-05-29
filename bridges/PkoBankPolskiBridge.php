@@ -5,7 +5,7 @@ class PkoBankPolskiBridge extends BridgeAbstract {
 	const NAME = 'PKO Bank Polski';
 	const URI = 'https://www.pkobp.pl';
 	const DESCRIPTION = 'PKO Bank Polski: Aktualności';
-	const CACHE_TIMEOUT = 0; // 1 hour
+	const CACHE_TIMEOUT = 3600; // 1 hour
 	const PARAMETERS = array(
 		'News' => array(
 			'category' => array(
@@ -69,11 +69,14 @@ class PkoBankPolskiBridge extends BridgeAbstract {
 				error_log($label);
 				error_log($labelColor);
 				if (!empty($label) && $labelColor != '#F2F2F2') {
-					$content .= '<span style="color: #fff; background-color: '
-						. $labelColor
-						. '; border-radius: 4px; padding: 4px; margin-right: 4px;">'
-						. $label
-						. '</span>';
+					$content .= '<span style="'
+						. 'font-weight: bold;'
+						. 'color: #fff;'
+						. 'background-color: ' . $labelColor . ';'
+						. 'border-radius: 4px;'
+						. 'padding: 4px;'
+						. 'margin-right: 4px;
+						. ">' . $label . '</span>';
 				}
 				$content .= '<span> '
 					. $element['snippet']['lead']
