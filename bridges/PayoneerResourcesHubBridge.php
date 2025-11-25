@@ -14,14 +14,19 @@ class PayoneerResourcesHubBridge extends BridgeAbstract {
 			or returnServerError('Could not request payoneer.com.');
 		$limit = 0;
 
-
 		foreach($html->find('div.wp-block-post') as $element) {
 			$item = array();
 
 			$titleNode = $element->find('h3.wp-block-post-title', 0)->find('a', 0);
-			$item['title'] = $titleNode->innertext;
-
 			$item['uri'] = $titleNode->href;
+
+			// Check if $this->items already has a record with the same 'uri' and a valid 'timestamp'.
+			// If so, we are dealing with a duplicate.
+			if ($this->hasValidItem($item['uri'])) {
+				continue;
+			}
+
+			$item['title'] = $titleNode->innertext;
 
 			$imageNode = $element->find('img.wp-post-image', 0);
 			if($imageNode) {
@@ -44,6 +49,25 @@ class PayoneerResourcesHubBridge extends BridgeAbstract {
 
 			$this->items[] = $item;
 		}
+	}
+
+	private function hasValidItem($uri) {
+		if (empty($uri) || empty($this->items)) {
+			return false;
+		}
+		foreach ($this->items as $existing) {
+			if (!isset($existing['uri'])) {
+				continue;
+			}
+			if ($existing['uri'] !== $uri) {
+				continue;
+			}
+			if (!isset($existing['timestamp'])) {
+				continue;
+			}
+			return true;
+		}
+		return false;
 	}
 
 	public function getIcon() {
