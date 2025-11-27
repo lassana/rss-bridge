@@ -3,21 +3,21 @@ class StablesBlogBridge extends BridgeAbstract {
 
 	const MAINTAINER = 'lassana';
 	const NAME = 'Stables Blog';
-	const URI = 'https://www.stables.money';
+	const URI = 'https://www.stables.money/blog';
 	const DESCRIPTION = 'Latest updates on stablecoins, payments, and Web3 fintech innovation.';
 	const CACHE_TIMEOUT = 0; // 0 min
 
 	public function collectData() {
 		$mainPageUrl = self::URI;
 
-		$html = getSimpleHTMLDOM($mainPageUrl . '/blog')
+		$html = getSimpleHTMLDOM($mainPageUrl)
 			or returnServerError('Could not request stables.money.');
 		$limit = 0;
 
 		foreach($html->find('div.blog-post') as $element) {
 			$item = array();
 
-			$item['uri'] = $element->find('a', 0)->href;
+			$item['uri'] = $mainPageUrl . $element->find('a', 0)->href;
 
 			$item['title'] = $element->find('#blog-title', 0)->innertext;
 
@@ -31,6 +31,11 @@ class StablesBlogBridge extends BridgeAbstract {
 			$dateNode = $element->find('p.paragraph-9', 0);
 			if ($dateNode) {
 				$item['timestamp'] = strtotime($dateNode->innertext);
+			}
+
+			$categoryNode = $element->find('div.mini-tag', 0);
+			if($categoryNode) {
+				$item['categories'] = [$categoryNode->innertext];
 			}
 
 			$this->items[] = $item;
