@@ -3,14 +3,14 @@ class StablesBlogBridge extends BridgeAbstract {
 
 	const MAINTAINER = 'lassana';
 	const NAME = 'Stables Blog';
-	const URI = 'https://www.stables.money/blog';
+	const URI = 'https://www.stables.money';
 	const DESCRIPTION = 'Latest updates on stablecoins, payments, and Web3 fintech innovation.';
 	const CACHE_TIMEOUT = 0; // 0 min
 
 	public function collectData() {
 		$mainPageUrl = self::URI;
 
-		$html = getSimpleHTMLDOM($mainPageUrl)
+		$html = getSimpleHTMLDOM($mainPageUrl . '/blog')
 			or returnServerError('Could not request stables.money.');
 		$limit = 0;
 
