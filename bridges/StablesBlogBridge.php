@@ -43,6 +43,6 @@ class StablesBlogBridge extends BridgeAbstract {
 	}
 
 	public function getIcon() {
-		return 'https://cdn.prod.website-files.com/660c048ecf246f8d15a85d0a/660fd853ad726e1e59eb159d_big-logo.png';
+		return 'https://cdn.prod.website-files.com/647fe94790c03420770215ff/648ffd5cf8719a50eb3647ba_webclip.png';
 	}
 }
